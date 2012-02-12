@@ -1,2 +1,4 @@
-c_src/tinySTM-*/
+c_src/tinySTM/
 ebin/
+.eunit/
+priv/

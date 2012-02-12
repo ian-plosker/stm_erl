@@ -12,21 +12,22 @@ BASEDIR="$PWD"
 
 case "$1" in
     clean)
-        rm -rf tinySTM-$TINYSTM_VSN
+        rm -rf tinySTM
         ;;
 
     test)
-        (cd tinySTM-$TINYSTM_VSN && make check)
+        (cd tinySTM && make check)
 
         ;;
     *)
         export NOTLS=1
 
-        if [ ! -d tinySTM-$TINYSTM_VSN ]; then
+        if [ ! -d tinySTM ]; then
             tar -xzf tinySTM-$TINYSTM_VSN.tgz
+            mv tinySTM-$TINYSTM_VSN tinySTM
         fi
 
-        (cd tinySTM-$TINYSTM_VSN && make all)
+        (cd tinySTM && make all)
 
         ;;
 esac
