@@ -2,3 +2,4 @@ c_src/tinySTM/
 ebin/
 .eunit/
 priv/
+*.o

@@ -1,5 +1,5 @@
 
--module(stm_erl_sup).
+-module(stm_sup).
 
 -behaviour(supervisor).
 

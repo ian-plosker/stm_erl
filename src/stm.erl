@@ -1,4 +1,4 @@
--module(stm_erl).
+-module(stm).
 -author("Ian Plosker").
 
 -compile(export_all).

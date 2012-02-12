@@ -1,4 +1,4 @@
-{application, stm_erl,
+{application, stm,
  [
   {description, ""},
   {vsn, "1"},
@@ -7,6 +7,6 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { stm_erl_app, []}},
+  {mod, { stm_app, []}},
   {env, []}
  ]}.

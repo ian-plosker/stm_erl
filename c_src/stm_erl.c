@@ -90,7 +90,7 @@ static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
     ErlNifResourceFlags flags = (ErlNifResourceFlags)(ERL_NIF_RT_CREATE | ERL_NIF_RT_TAKEOVER);
     stm_erl_RESOURCE = enif_open_resource_type(env,
-                                            "stm_erl",
+                                            "stm",
                                             "stm_erl_resource",
                                             &stm_erl_resource_resource_cleanup,
                                             flags,
@@ -110,4 +110,4 @@ static ErlNifFunc nif_funcs[] =
     {"load_var", 1, stm_erl_load_var}
 };
 
-ERL_NIF_INIT(stm_erl, nif_funcs, &on_load, NULL, NULL, NULL);
+ERL_NIF_INIT(stm, nif_funcs, &on_load, NULL, NULL, NULL);
