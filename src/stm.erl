@@ -117,12 +117,6 @@ basic_test() ->
         end),
     ?assert(Val3 == 3).
 
-spawn_fun_n(_Fun, 0) -> ok;
-spawn_fun_n(Fun, N) ->
-    %io:format("yo~n"),
-    spawn(Fun),
-    spawn_fun_n(Fun, N - 1).
-
 sync_test() ->
     initialize(),
 
@@ -150,6 +144,11 @@ sync_test() ->
 
     Val = ?atomic(load_var(Var)),
     ?assertEqual(gather_successful_trans_count(10000), Val).
+
+spawn_fun_n(_Fun, 0) -> ok;
+spawn_fun_n(Fun, N) ->
+    spawn(Fun),
+    spawn_fun_n(Fun, N - 1).
 
 gather_successful_trans_count(N) ->
     gather_successful_trans_count(N, 0).
