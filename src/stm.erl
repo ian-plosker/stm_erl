@@ -3,13 +3,8 @@
 
 -compile(export_all).
 
--define(atomic(X), (fun() ->
-            trans_start(),
-            Result = X,
-            commit(),
-            io:format("A: ~p~n", [ [?LINE] ]),
-            Result
-    end)()).
+-define(atomic(X), atomic(fun() -> X end)).
+-define(DEFAULT_TRANS_RETRIES, 5).
 
 -on_load(init/0).
 
@@ -18,9 +13,22 @@
     -include_lib("eunit/include/eunit.hrl").
 -endif.
 
+atomic(Fun) -> atomic(Fun, ?DEFAULT_TRANS_RETRIES).
+
+atomic(_Fun, 0) -> {error, transaction_failed};
+atomic(Fun, N) ->
+    trans_start(),
+    Result = Fun(),
+    case commit() of
+        ok ->
+            Result;
+        error ->
+            atomic(Fun, N - 1)
+    end.
+
 -spec init() -> ok | {error, any()}.
 init() ->
-    case code:priv_dir(dlht) of
+    case code:priv_dir(?MODULE) of
         {error, bad_name} ->
             case code:which(?MODULE) of
                 Filename when is_list(Filename) ->
@@ -31,7 +39,7 @@ init() ->
                     SoName = filename:join("../priv", "stm_erl")
             end;
          Dir ->
-            SoName = filename:join(Dir, "dlcbf")
+            SoName = filename:join(Dir, "stm_erl")
     end,
     erlang:load_nif(SoName, 0).
 
@@ -88,14 +96,17 @@ store_var(_Var, _Val) ->
 
 basic_test() ->
     initialize(),
-    ?assert(true),
+
     {ok, Var} = ?atomic(new_var(1)),
+
     Val1 = ?atomic(begin
                 load_var(Var)
         end),
     ?assert(Val1 == 1),
 
-    ok = ?atomic(store_var(2, Var)),
+
+
+    ?atomic(store_var(2, Var)),
     Val2 = ?atomic(load_var(Var)),
     ?assert(Val2 == 2),
 
@@ -106,5 +117,51 @@ basic_test() ->
         end),
     ?assert(Val3 == 3).
 
--endif.
+spawn_fun_n(_Fun, 0) -> ok;
+spawn_fun_n(Fun, N) ->
+    %io:format("yo~n"),
+    spawn(Fun),
+    spawn_fun_n(Fun, N - 1).
 
+sync_test() ->
+    initialize(),
+
+    {ok, Var} = ?atomic(new_var(0)),
+
+    Self = self(),
+    Fun = fun() ->
+            timer:sleep(random:uniform(10)),
+            case ?atomic(
+                begin
+                        Val0 = load_var(Var),
+                        ok = store_var(Val0 + 1, Var)
+                end
+            ) of
+                {error, _} ->
+                    Self ! failed;
+                _ ->
+                    Self ! successful
+            end
+    end,
+
+    spawn_fun_n(Fun, 10000),
+
+    timer:sleep(50),
+
+    Val = ?atomic(load_var(Var)),
+    ?assertEqual(gather_successful_trans_count(10000), Val).
+
+gather_successful_trans_count(N) ->
+    gather_successful_trans_count(N, 0).
+
+gather_successful_trans_count(0, Count) ->
+    Count;
+gather_successful_trans_count(N, Count) ->
+    receive
+        failed ->
+            gather_successful_trans_count(N - 1, Count);
+        successful ->
+            gather_successful_trans_count(N - 1, Count + 1)
+    end.
+
+-endif.

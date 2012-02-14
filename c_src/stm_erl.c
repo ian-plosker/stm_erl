@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "erl_nif.h"
 
@@ -19,6 +20,10 @@ typedef struct {
     unsigned int size;
 } stm_erl_var;
 
+typedef struct {
+    stm_erl_var *var;
+} stm_erl_handle;
+
 ERL_NIF_TERM stm_erl_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     stm_init();
     return enif_make_atom(env, "ok");
@@ -31,53 +36,60 @@ ERL_NIF_TERM stm_erl_close(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) 
 
 ERL_NIF_TERM stm_erl_trans_start(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     stm_init_thread();
-    stm_start(NULL);
+    stm_tx_attr_t *_a = enif_alloc(sizeof(*_a));
+    (*_a).id = rand();
+    (*_a).no_retry = 1;
+    stm_start(_a);
     return enif_make_atom(env, "ok");
 }
 
 ERL_NIF_TERM stm_erl_commit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    stm_commit(NULL);
+    int aborted = stm_aborted();
+    aborted ? stm_abort(STM_ABORT_EXPLICIT) : stm_commit();
     stm_exit_thread();
-    return enif_make_atom(env, "ok");
+    return enif_make_atom(env, aborted == 0 ? "ok" : "error");
 }
 
 ERL_NIF_TERM stm_erl_new_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    stm_erl_var* var = (stm_erl_var*)enif_alloc_resource(stm_erl_RESOURCE,
-                                                         sizeof(stm_erl_var));
+    stm_erl_handle* handle = (stm_erl_handle*)enif_alloc_resource(stm_erl_RESOURCE,
+                                                         sizeof(stm_erl_handle));
+
+    handle->var = enif_alloc(sizeof(stm_erl_var));
+
     long value;
     if (enif_get_int64(env, argv[0], &value)) {
 
-        var->field = enif_alloc(sizeof(int64_t));
-        var->type = INT;
-        var->size = sizeof(int);
+        handle->var->field = enif_alloc(sizeof(int64_t));
+        handle->var->type = INT;
+        handle->var->size = sizeof(int);
 
-        stm_store_long(var->field, value);
+        stm_store_long(handle->var->field, value);
     }
     else
         return enif_make_badarg(env);
 
-    ERL_NIF_TERM result = enif_make_resource(env, var);
-    enif_release_resource(var);
+    ERL_NIF_TERM result = enif_make_resource(env, handle);
+    enif_release_resource(handle);
 
     return enif_make_tuple2(env, enif_make_atom(env, "ok"), result);
 }
 
 ERL_NIF_TERM stm_erl_load_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    stm_erl_var* var;
-    if (!enif_get_resource(env, argv[0], stm_erl_RESOURCE, (void**)&var))
+    stm_erl_handle* handle;
+    if (!enif_get_resource(env, argv[0], stm_erl_RESOURCE, (void**)&handle))
         return enif_make_badarg(env);
-    long value = stm_load_long(var->field);
+    long value = stm_load_long(handle->var->field);
     return enif_make_int64(env, value);
 }
 
 ERL_NIF_TERM stm_erl_store_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
-    stm_erl_var* var;
+    stm_erl_handle* handle;
     long value;
-    if (!enif_get_resource(env, argv[1], stm_erl_RESOURCE, (void**)&var) ||
+    if (!enif_get_resource(env, argv[1], stm_erl_RESOURCE, (void**)&handle) ||
         !enif_get_int64(env, argv[0], &value))
         return enif_make_badarg(env);
 
-    stm_store_long(var->field, value);
+    stm_store_long(handle->var->field, value);
 
     return enif_make_atom(env, "ok");
 }
