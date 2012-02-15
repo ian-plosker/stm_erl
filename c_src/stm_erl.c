@@ -10,14 +10,14 @@
 static ErlNifResourceType* stm_erl_RESOURCE;
 
 enum stm_erl_var_field_type {
-    INT,
-    BIN
+    INTEGER,
+    BINARY
 };
 
 typedef struct {
     enum stm_erl_var_field_type type;
     void *field;
-    unsigned int size;
+    unsigned int *size;
 } stm_erl_var;
 
 ERL_NIF_TERM stm_erl_init(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
@@ -50,14 +50,23 @@ ERL_NIF_TERM stm_erl_new_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     stm_erl_var* var = (stm_erl_var*)enif_alloc_resource(stm_erl_RESOURCE,
                                                          sizeof(stm_erl_var));
 
-    long value;
-    if (enif_get_int64(env, argv[0], &value)) {
+    long integer;
+    ErlNifBinary binary;
+    if (enif_get_int64(env, argv[0], &integer)) {
 
-        var->field = enif_alloc(sizeof(int64_t));
-        var->type = INT;
-        var->size = sizeof(int);
+        var->field = enif_alloc(sizeof(long));
+        var->type = INTEGER;
+        var->size = NULL;
 
-        stm_store_long(var->field, value);
+        memcpy(var->field, &integer, sizeof(long));
+    }
+    else if(enif_inspect_binary(env, argv[0], &binary)) {
+        var->field = enif_alloc(sizeof(binary.size));
+        var->type = BINARY;
+        var->size = enif_alloc(sizeof(unsigned int));
+
+        memcpy(var->field, binary.data, sizeof(binary.size));
+        memcpy(var->size, &binary.size, sizeof(unsigned int));
     }
     else
         return enif_make_badarg(env);
@@ -72,24 +81,45 @@ ERL_NIF_TERM stm_erl_load_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
     stm_erl_var* var;
     if (!enif_get_resource(env, argv[0], stm_erl_RESOURCE, (void**)&var))
         return enif_make_badarg(env);
-    long value = stm_load_long(var->field);
-    return enif_make_int64(env, value);
+
+    if (var->type == INTEGER) {
+        long value = stm_load_long(var->field);
+        return enif_make_int64(env, value);
+    }
+    else if (var->type == BINARY) {
+        ERL_NIF_TERM term;
+        unsigned char *binary = enif_make_new_binary(env, *var->size, &term);
+        stm_load_bytes(var->field, binary, *var->size);
+        return term;
+    }
+    else
+        return enif_make_badarg(env);
 }
 
 ERL_NIF_TERM stm_erl_store_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     stm_erl_var* var;
-    long value;
-    if (!enif_get_resource(env, argv[1], stm_erl_RESOURCE, (void**)&var) ||
-        !enif_get_int64(env, argv[0], &value))
+    if (!enif_get_resource(env, argv[1], stm_erl_RESOURCE, (void**)&var))
         return enif_make_badarg(env);
 
-    stm_store_long(var->field, value);
+    long value;
+    ErlNifBinary binary;
+    if (enif_get_int64(env, argv[0], &value) && var->type == INTEGER) {
+        stm_store_long(var->field, value);
+    }
+    else if(enif_inspect_binary(env, argv[0], &binary) && var->type == BINARY) {
+        stm_store_uint(var->size, binary.size);
+        stm_store_bytes(var->field, binary.data, binary.size);
+    }
+    else
+        return enif_make_badarg(env);
 
     return enif_make_atom(env, "ok");
 }
 
 static void stm_erl_resource_resource_cleanup(ErlNifEnv* env, void* arg) {
-
+    stm_erl_var* var = (stm_erl_var*)arg;
+    enif_free(var->field);
+    enif_free(var->size);
 }
 
 static int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)

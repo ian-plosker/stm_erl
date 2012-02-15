@@ -3,10 +3,10 @@
 
 -compile(export_all).
 
+-on_load(init/0).
+
 -define(atomic(X), atomic(fun() -> X end)).
 -define(DEFAULT_TRANS_RETRIES, 5).
-
--on_load(init/0).
 
 -ifdef(TEST).
     -include_lib("eqc/include/eqc.hrl").
@@ -94,7 +94,7 @@ store_var(_Var, _Val) ->
 
 -ifdef(TEST).
 
-basic_test() ->
+int_test() ->
     initialize(),
 
     {ok, Var} = ?atomic(new_var(1)),
@@ -103,8 +103,6 @@ basic_test() ->
                 load_var(Var)
         end),
     ?assert(Val1 == 1),
-
-
 
     ?atomic(store_var(2, Var)),
     Val2 = ?atomic(load_var(Var)),
@@ -117,10 +115,27 @@ basic_test() ->
         end),
     ?assert(Val3 == 3).
 
+binary_test() ->
+    initialize(),
+    {ok, Var} = new_var(<<"abc">>),
+
+    Val1 = ?atomic(load_var(Var)),
+
+    ?assertEqual(<<"abc">>, Val1),
+
+    ?atomic(
+        begin
+                Val1 = load_var(Var),
+                store_var(<<Val1/binary, "def">>, Var)
+        end),
+
+    Val2 = ?atomic(load_var(Var)),
+    ?assertEqual(<<"abcdef">>, Val2).
+
 sync_test() ->
     initialize(),
 
-    {ok, Var} = ?atomic(new_var(0)),
+    {ok, Var} = new_var(0),
 
     Self = self(),
     Fun = fun() ->
