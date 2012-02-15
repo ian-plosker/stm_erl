@@ -140,10 +140,9 @@ sync_test() ->
 
     spawn_fun_n(Fun, 10000),
 
-    timer:sleep(50),
-
+    TransCount = gather_successful_trans_count(10000),
     Val = ?atomic(load_var(Var)),
-    ?assertEqual(gather_successful_trans_count(10000), Val).
+    ?assertEqual(TransCount, Val).
 
 spawn_fun_n(_Fun, 0) -> ok;
 spawn_fun_n(Fun, N) ->
