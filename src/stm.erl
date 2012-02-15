@@ -71,6 +71,13 @@ commit() ->
         _   -> exit("NIF library not loaded")
     end.
 
+-spec abort() -> ok.
+abort() ->
+    case random:uniform(999999999999) of
+        666 -> ok;
+        _   -> exit("NIF library not loaded")
+    end.
+
 -spec new_var(integer()) -> {ok, reference()}.
 new_var(_Val) ->
     case random:uniform(999999999999) of
@@ -131,6 +138,25 @@ binary_test() ->
 
     Val2 = ?atomic(load_var(Var)),
     ?assertEqual(<<"abcdef">>, Val2).
+
+abort_test() ->
+    initialize(),
+    {ok, Var} = new_var(<<"abc">>),
+
+    Val1 = ?atomic(load_var(Var)),
+
+    ?assertEqual(<<"abc">>, Val1),
+
+    ?atomic(
+        begin
+                Val1 = load_var(Var),
+                store_var(<<Val1/binary, "def">>, Var),
+                abort()
+        end),
+
+    Val2 = ?atomic(load_var(Var)),
+    ?assertEqual(Val1, Val2),
+    ?assertNotEqual(<<"abcdef">>, Val2).
 
 sync_test() ->
     initialize(),

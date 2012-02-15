@@ -46,6 +46,11 @@ ERL_NIF_TERM stm_erl_commit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_atom(env, aborted == 0 ? "ok" : "error");
 }
 
+ERL_NIF_TERM stm_erl_abort(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
+    stm_abort(STM_ABORT_EXPLICIT);
+    return enif_make_atom(env, "ok");
+}
+
 ERL_NIF_TERM stm_erl_new_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
     stm_erl_var* var = (stm_erl_var*)enif_alloc_resource(stm_erl_RESOURCE,
                                                          sizeof(stm_erl_var));
@@ -53,7 +58,6 @@ ERL_NIF_TERM stm_erl_new_var(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     long integer;
     ErlNifBinary binary;
     if (enif_get_int64(env, argv[0], &integer)) {
-
         var->field = enif_alloc(sizeof(long));
         var->type = INTEGER;
         var->size = NULL;
@@ -141,6 +145,7 @@ static ErlNifFunc nif_funcs[] =
     {"close", 0, stm_erl_close},
     {"trans_start", 0, stm_erl_trans_start},
     {"commit", 0, stm_erl_commit},
+    {"abort", 0, stm_erl_abort},
     {"new_var", 1, stm_erl_new_var},
     {"store_var", 2, stm_erl_store_var},
     {"load_var", 1, stm_erl_load_var}
