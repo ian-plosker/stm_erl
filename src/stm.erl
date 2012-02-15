@@ -9,7 +9,7 @@
 -define(DEFAULT_TRANS_RETRIES, 5).
 
 -ifdef(TEST).
-    -include_lib("eqc/include/eqc.hrl").
+    %-include_lib("eqc/include/eqc.hrl").
     -include_lib("eunit/include/eunit.hrl").
 -endif.
 
