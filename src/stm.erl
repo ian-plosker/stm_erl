@@ -9,7 +9,6 @@
 -define(DEFAULT_TRANS_RETRIES, 5).
 
 -ifdef(TEST).
-    %-include_lib("eqc/include/eqc.hrl").
     -include_lib("eunit/include/eunit.hrl").
 -endif.
 
@@ -41,7 +40,8 @@ init() ->
          Dir ->
             SoName = filename:join(Dir, "stm_erl")
     end,
-    erlang:load_nif(SoName, 0).
+    erlang:load_nif(SoName, 0),
+    initialize().
 
 -spec initialize() -> ok.
 initialize() ->
@@ -101,9 +101,7 @@ store_var(_Var, _Val) ->
 
 -ifdef(TEST).
 
-int_test() ->
-    initialize(),
-
+integer_test() ->
     {ok, Var} = ?atomic(new_var(1)),
 
     Val1 = ?atomic(begin
@@ -123,7 +121,6 @@ int_test() ->
     ?assert(Val3 == 3).
 
 binary_test() ->
-    initialize(),
     {ok, Var} = new_var(<<"abc">>),
 
     Val1 = ?atomic(load_var(Var)),
@@ -140,7 +137,6 @@ binary_test() ->
     ?assertEqual(<<"abcdef">>, Val2).
 
 abort_test() ->
-    initialize(),
     {ok, Var} = new_var(<<"abc">>),
 
     Val1 = ?atomic(load_var(Var)),
@@ -159,8 +155,6 @@ abort_test() ->
     ?assertNotEqual(<<"abcdef">>, Val2).
 
 sync_test() ->
-    initialize(),
-
     {ok, Var} = new_var(0),
 
     Self = self(),
