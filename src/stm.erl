@@ -6,16 +6,17 @@
 -on_load(init/0).
 
 -define(atomic(X), atomic(fun() -> X end)).
--define(DEFAULT_TRANS_RETRIES, 5).
+-define(DEFAULT_TRANS_TRIES, 5).
 
 -ifdef(TEST).
     -include_lib("eunit/include/eunit.hrl").
 -endif.
 
-atomic(Fun) -> atomic(Fun, ?DEFAULT_TRANS_RETRIES).
+atomic(Fun) ->
+    atomic(Fun, ?DEFAULT_TRANS_TRIES).
 
 atomic(_Fun, 0) -> {error, transaction_failed};
-atomic(Fun, N) ->
+atomic(Fun, N) when is_function(Fun, 0) ->
     trans_start(),
     Result = Fun(),
     case commit() of
@@ -104,7 +105,8 @@ store_var(_Var, _Val) ->
 integer_test() ->
     {ok, Var} = ?atomic(new_var(1)),
 
-    Val1 = ?atomic(begin
+    Val1 = ?atomic(
+        begin
                 load_var(Var)
         end),
     ?assert(Val1 == 1),
@@ -122,9 +124,7 @@ integer_test() ->
 
 binary_test() ->
     {ok, Var} = new_var(<<"abc">>),
-
     Val1 = ?atomic(load_var(Var)),
-
     ?assertEqual(<<"abc">>, Val1),
 
     ?atomic(
@@ -132,15 +132,12 @@ binary_test() ->
                 Val1 = load_var(Var),
                 store_var(<<Val1/binary, "def">>, Var)
         end),
-
     Val2 = ?atomic(load_var(Var)),
     ?assertEqual(<<"abcdef">>, Val2).
 
 abort_test() ->
     {ok, Var} = new_var(<<"abc">>),
-
     Val1 = ?atomic(load_var(Var)),
-
     ?assertEqual(<<"abc">>, Val1),
 
     ?atomic(
@@ -164,8 +161,8 @@ sync_test() ->
                 begin
                         Val0 = load_var(Var),
                         ok = store_var(Val0 + 1, Var)
-                end
-            ) of
+                end)
+            of
                 {error, _} ->
                     Self ! failed;
                 _ ->
